@@ -1,6 +1,5 @@
-LDFLAGS=-static -s 
-.PHONY:	clean
-search.exe:	main.cc anqi.cc ClientSocket.cpp Protocol.cpp
-	$(CXX) -o $@ $^ $(LDFLAGS)
+all: main.cc
+	g++ -static -s -o search main.cc Protocol.cpp ClientSocket.cpp anqi.cc
+	mv search ../EnterRoom/Search
 clean:
-	DEL search.exe 2>NUL
+	rm -r ../EnterRoom/Search/search

@@ -70,7 +70,6 @@ struct BOARD {
 	void Flip(POS,FIN=FIN_X);    // 翻子
 	void Move(MOV);              // 移動 or 吃子
 	void DoMove(MOV m, FIN f) ;
-	//void Init(int Board[32], int Piece[14], int Color);
 	void Init(char Board[32], int Piece[14], int Color);
 };
 

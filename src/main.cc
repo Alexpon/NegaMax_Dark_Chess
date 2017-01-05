@@ -23,8 +23,12 @@ const int DEFAULTTIME = 15;
 typedef  int SCORE;
 static const SCORE INF=1000001;
 static const SCORE WIN=1000000;
-SCORE SearchMax(const BOARD&,int,int);
-SCORE SearchMin(const BOARD&,int,int);
+SCORE SearchMax(const BOARD&,int,int,int,int);
+SCORE SearchMin(const BOARD&,int,int,int,int);
+SCORE Max(SCORE, SCORE);
+SCORE Min(SCORE, SCORE);
+
+SCORE NegaScout(const BOARD&,int,int,int,int);
 
 #ifdef _WINDOWS
 DWORD Tick;     // 開始時刻
@@ -53,36 +57,106 @@ SCORE Eval(const BOARD &B) {
 
 // dep=現在在第幾層
 // cut=還要再走幾層
-SCORE SearchMax(const BOARD &B,int dep,int cut) {
+SCORE SearchMax(const BOARD &B, int alpha, int beta, int dep, int cut) {
 	if(B.ChkLose())return -WIN;
 
 	MOVLST lst;
-	if(cut==0||TimesUp()||B.MoveGen(lst)==0)return +Eval(B);
+	if(cut==0||TimesUp()||B.MoveGen(lst)==0)
+		return +Eval(B);
 
+	// 先搜最左邊的Branch
 	SCORE ret=-INF;
-	for(int i=0;i<lst.num;i++) {
+	BOARD N(B);
+	N.Move(lst.mov[0]);
+	if (dep==0)
+		BestMove = lst.mov[0];
+	ret = Max(ret, SearchMin(N, alpha, beta, dep+1, cut-1));
+	if (ret >= beta) {return ret;} // beta cut off
+	
+	for(int i=1;i<lst.num;i++) {
 		BOARD N(B);
 		N.Move(lst.mov[i]);
-		const SCORE tmp=SearchMin(N,dep+1,cut-1);
-		if(tmp>ret){ret=tmp;if(dep==0)BestMove=lst.mov[i];}
+		const SCORE tmp=SearchMin(N, ret, ret+1, dep+1,cut-1);
+		if(tmp>ret){ // fail high
+			if(cut<3 || tmp>=beta){
+				ret = tmp;
+				if(dep==0)
+					BestMove=lst.mov[i];
+			}
+			else
+				ret = SearchMin(N, tmp, beta, dep+1, cut-1);
+		}
+		if(ret>=beta) {return ret;}	// beta cut off
 	}
 	return ret;
 }
 
-SCORE SearchMin(const BOARD &B,int dep,int cut) {
+SCORE SearchMin(const BOARD &B, int alpha, int beta, int dep, int cut) {
 	if(B.ChkLose())return +WIN;
 
 	MOVLST lst;
 	if(cut==0||TimesUp()||B.MoveGen(lst)==0)return -Eval(B);
 
+	// 先搜最左邊的Branch
 	SCORE ret=+INF;
-	for(int i=0;i<lst.num;i++) {
+	BOARD N(B);
+	N.Move(lst.mov[0]);
+	ret = Min(ret, SearchMax(N, alpha, beta, dep+1, cut-1));
+	if (ret <= alpha) {return ret;} // alpha cut off
+
+	for(int i=1;i<lst.num;i++) {
 		BOARD N(B);
 		N.Move(lst.mov[i]);
-		const SCORE tmp=SearchMax(N,dep+1,cut-1);
-		if(tmp<ret){ret=tmp;}
+		const SCORE tmp = SearchMax(N, ret-1, ret, dep+1, cut-1);
+		if(tmp<ret){	// fail low
+			if(cut<3 || tmp<=alpha)
+				ret=tmp;
+			else
+				ret = SearchMax(N, alpha, tmp, dep+1, cut-1);
+		}
+		if(ret<=alpha) {return ret;}	// alpha cut off
 	}
 	return ret;
+}
+
+SCORE NegaScout(const BOARD &B, int alpha, int beta, int dep, int cut) {
+	MOVLST lst;
+	if(cut==0||TimesUp()||B.MoveGen(lst)==0) return (2*((dep+1)%2)-1)*Eval(B);
+
+	SCORE m=-INF;	// the current lower bound
+	SCORE n=beta;	// the current upper bound
+	for(int i=0; i<lst.num; i++) {
+		BOARD N(B);
+		N.Move(lst.mov[i]);
+		const SCORE tmp = -1*NegaScout(N, -1*n, -1*Max(alpha, m), dep+1, cut-1);
+		if(tmp>m) {
+			if(n==beta||cut<3||tmp>=beta)
+				m=tmp;
+				if(dep==0)
+					BestMove=lst.mov[i];
+			else
+				m = -1*NegaScout(N, -1*beta, -1*tmp, dep+1, cut-1);
+		}
+		if(m>=beta)
+			return m;
+		n = Max(alpha, m) + 1;
+	}
+	return m;
+
+}
+
+SCORE Max(SCORE a, SCORE b){
+	if(a>b)
+		return a;
+	else
+		return b;
+}
+
+SCORE Min(SCORE a, SCORE b){
+	if(a<b)
+		return a;
+	else
+		return b;
 }
 
 MOV Play(const BOARD &B) {
@@ -95,11 +169,15 @@ MOV Play(const BOARD &B) {
 #endif
 	POS p; int c=0;
 
-	// 新遊戲？隨機翻子
-	if(B.who==-1){p=rand()%32;printf("%d\n",p);return MOV(p,p);}
+	// 新遊戲
+	// 隨機翻四周圍的子
+	POS corner[4] = {0, 3, 28, 31};
+	if(B.who==-1){p=corner[rand()%4];printf("%d\n",p);return MOV(p,p);}
+	//if(B.who==-1){p=rand()%32;printf("%d\n",p);return MOV(p,p);}
 
 	// 若搜出來的結果會比現在好就用搜出來的走法
-	if(SearchMax(B,0,5)>Eval(B))return BestMove;
+//	if(SearchMax(B,-INF,INF,0,5)>Eval(B))return BestMove;
+	if(NegaScout(B,-INF,INF,0,5)>Eval(B))return BestMove;
 
 	// 否則隨便翻一個地方 但小心可能已經沒地方翻了
 	for(p=0;p<32;p++)if(B.fin[p]==FIN_X)c++;
@@ -108,6 +186,8 @@ MOV Play(const BOARD &B) {
 	for(p=0;p<32;p++)if(B.fin[p]==FIN_X&&--c<0)break;
 	return MOV(p,p);
 }
+
+
 
 FIN type2fin(int type) {
     switch(type) {
