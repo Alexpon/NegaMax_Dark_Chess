@@ -7,11 +7,12 @@
  *
  * Modify by Hung-Jui Chang, December 2013
 \*****************************************************************************/
-#include<cstdio>
-#include<cstdlib>
-#include"anqi.hh"
-#include"Protocol.h"
-#include"ClientSocket.h"
+#include <cstdio>
+#include <cstdlib>
+#include "anqi.hh"
+#include "Protocol.h"
+#include "ClientSocket.h"
+#include "Evaluation.h"
 
 #ifdef _WINDOWS
 #include<windows.h>
@@ -49,10 +50,16 @@ bool TimesUp() {
 
 // 一個重量不重質的審局函數
 SCORE Eval(const BOARD &B) {
+	/*
 	int cnt[2]={0,0};
-	for(POS p=0;p<32;p++){const CLR c=GetColor(B.fin[p]);if(c!=-1)cnt[c]++;}
-	for(int i=0;i<14;i++)cnt[GetColor(FIN(i))]+=B.cnt[i];
-	return cnt[B.who]-cnt[B.who^1];
+	for(POS p=0;p<32;p++){const CLR c=GetColor(B.fin[p]);if(c!=-1)cnt[c]++;}	// 計算目前盤面紅黑數量
+	for(int i=0;i<14;i++)cnt[GetColor(FIN(i))]+=B.cnt[i];						// 計算尚未翻開棋子紅黑數量
+	return cnt[B.who]-cnt[B.who^1];								// 0:黑方 1:紅方 取exclusive-or紅黑互換
+	*/
+
+	Evaluation eva = Evaluation(B);
+	int score = eva.material_value();
+	return score;
 }
 
 // dep=現在在第幾層
