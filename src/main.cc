@@ -13,6 +13,7 @@
 #include "Protocol.h"
 #include "ClientSocket.h"
 #include "Evaluation.h"
+#include "Hash.h"
 
 #ifdef _WINDOWS
 #include<windows.h>
@@ -24,6 +25,8 @@ const int DEFAULTTIME = 15;
 typedef  int SCORE;
 static const SCORE INF=1000001;
 static const SCORE WIN=1000000;
+static const SCORE FailSearch=-99999;
+
 SCORE SearchMax(const BOARD&,int,int,int,int);
 SCORE SearchMin(const BOARD&,int,int,int,int);
 SCORE Max(SCORE, SCORE);
@@ -32,13 +35,13 @@ SCORE Min(SCORE, SCORE);
 SCORE NegaScout(const BOARD&,int,int,int,int);
 
 #ifdef _WINDOWS
-DWORD Tick;     // ¶}©l®É¨è
-int   TimeOut;  // ®É­­
+DWORD Tick;     // é–‹å§‹æ™‚åˆ»
+int   TimeOut;  // æ™‚é™
 #else
-clock_t Tick;     // ¶}©l®É¨è
-clock_t TimeOut;  // ®É­­
+clock_t Tick;     // é–‹å§‹æ™‚åˆ»
+clock_t TimeOut;  // æ™‚é™
 #endif
-MOV   BestMove; // ·j¥X¨Óªº³Ì¨ÎµÛªk
+MOV   BestMove; // æœå‡ºä¾†çš„æœ€ä½³è‘—æ³•
 
 bool TimesUp() {
 #ifdef _WINDOWS
@@ -48,22 +51,23 @@ bool TimesUp() {
 #endif
 }
 
-// ¤@­Ó­«¶q¤£­«½èªº¼f§½¨ç¼Æ
+
 SCORE Eval(const BOARD &B) {
-	/*
+	
 	int cnt[2]={0,0};
-	for(POS p=0;p<32;p++){const CLR c=GetColor(B.fin[p]);if(c!=-1)cnt[c]++;}	// ­pºâ¥Ø«e½L­±¬õ¶Â¼Æ¶q
-	for(int i=0;i<14;i++)cnt[GetColor(FIN(i))]+=B.cnt[i];						// ­pºâ©|¥¼Â½¶}´Ñ¤l¬õ¶Â¼Æ¶q
-	return cnt[B.who]-cnt[B.who^1];								// 0:¶Â¤è 1:¬õ¤è ¨úexclusive-or¬õ¶Â¤¬´«
-	*/
+	for(POS p=0;p<32;p++){const CLR c=GetColor(B.fin[p]);if(c!=-1)cnt[c]++;}	// Â­pÂºÃ¢Â¥Ã˜Â«eÂ½LÂ­Â±Â¬ÃµÂ¶Ã‚Â¼Ã†Â¶q
+	for(int i=0;i<14;i++)cnt[GetColor(FIN(i))]+=B.cnt[i];						// Â­pÂºÃ¢Â©|Â¥Â¼Ã‚Â½Â¶}Â´Ã‘Â¤lÂ¬ÃµÂ¶Ã‚Â¼Ã†Â¶q
+	return cnt[B.who]-cnt[B.who^1];								// 0:Â¶Ã‚Â¤Ã¨ 1:Â¬ÃµÂ¤Ã¨ Â¨Ãºexclusive-orÂ¬ÃµÂ¶Ã‚Â¤Â¬Â´Â«
+	/*
 
 	Evaluation eva = Evaluation(B);
 	int score = eva.material_value();
 	return score;
+	*/
 }
 
-// dep=²{¦b¦b²Ä´X¼h
-// cut=ÁÙ­n¦A¨«´X¼h
+// dep=ç¾åœ¨åœ¨ç¬¬å¹¾å±¤
+// cut=é‚„è¦å†èµ°å¹¾å±¤
 SCORE SearchMax(const BOARD &B, int alpha, int beta, int dep, int cut) {
 	if(B.ChkLose())return -WIN;
 
@@ -71,15 +75,17 @@ SCORE SearchMax(const BOARD &B, int alpha, int beta, int dep, int cut) {
 	if(cut==0||TimesUp()||B.MoveGen(lst)==0)
 		return +Eval(B);
 
-	// ¥ı·j³Ì¥ªÃäªºBranch
+	// Start from the first branch
 	SCORE ret=-INF;
 	BOARD N(B);
 	N.Move(lst.mov[0]);
-	if (dep==0)
-		BestMove = lst.mov[0];
+	
 	ret = Max(ret, SearchMin(N, alpha, beta, dep+1, cut-1));
 	if (ret >= beta) {return ret;} // beta cut off
-	
+	else {
+		if (dep==0)
+			BestMove = lst.mov[0];
+	}
 	for(int i=1;i<lst.num;i++) {
 		BOARD N(B);
 		N.Move(lst.mov[i]);
@@ -87,11 +93,11 @@ SCORE SearchMax(const BOARD &B, int alpha, int beta, int dep, int cut) {
 		if(tmp>ret){ // fail high
 			if(cut<3 || tmp>=beta){
 				ret = tmp;
-				if(dep==0)
-					BestMove=lst.mov[i];
 			}
 			else
 				ret = SearchMin(N, tmp, beta, dep+1, cut-1);
+			if(dep==0)
+				BestMove=lst.mov[i];
 		}
 		if(ret>=beta) {return ret;}	// beta cut off
 	}
@@ -104,7 +110,7 @@ SCORE SearchMin(const BOARD &B, int alpha, int beta, int dep, int cut) {
 	MOVLST lst;
 	if(cut==0||TimesUp()||B.MoveGen(lst)==0)return -Eval(B);
 
-	// ¥ı·j³Ì¥ªÃäªºBranch
+	// Start from the first branch
 	SCORE ret=+INF;
 	BOARD N(B);
 	N.Move(lst.mov[0]);
@@ -127,9 +133,20 @@ SCORE SearchMin(const BOARD &B, int alpha, int beta, int dep, int cut) {
 }
 
 SCORE NegaScout(const BOARD &B, int alpha, int beta, int dep, int cut) {
-	MOVLST lst;
-	if(cut==0||TimesUp()||B.MoveGen(lst)==0) return (2*((dep+1)%2)-1)*Eval(B);
+	if(B.ChkLose()){
+		if (dep%2==0)
+			return -WIN;
+		else
+			return +WIN;
+	}
 
+	MOVLST lst;
+	if(cut==0||TimesUp()||B.MoveGen(lst)==0){
+		if (dep%2==0)
+			return +Eval(B);
+		else
+			return -Eval(B);
+	}
 	SCORE m=-INF;	// the current lower bound
 	SCORE n=beta;	// the current upper bound
 	for(int i=0; i<lst.num; i++) {
@@ -138,11 +155,11 @@ SCORE NegaScout(const BOARD &B, int alpha, int beta, int dep, int cut) {
 		const SCORE tmp = -1*NegaScout(N, -1*n, -1*Max(alpha, m), dep+1, cut-1);
 		if(tmp>m) {
 			if(n==beta||cut<3||tmp>=beta)
-				m=tmp;
-				if(dep==0)
-					BestMove=lst.mov[i];
+				m = tmp;
 			else
 				m = -1*NegaScout(N, -1*beta, -1*tmp, dep+1, cut-1);
+			if(dep==0)
+				BestMove=lst.mov[i];
 		}
 		if(m>=beta)
 			return m;
@@ -175,25 +192,23 @@ MOV Play(const BOARD &B) {
 	TimeOut = (DEFAULTTIME-3)*CLOCKS_PER_SEC;
 #endif
 	POS p; int c=0;
-
-	// ·s¹CÀ¸
-	// ÀH¾÷Â½¥|©P³òªº¤l
+ 
+	// ç”±è§’è½é–‹å±€
 	POS corner[4] = {0, 3, 28, 31};
 	if(B.who==-1){p=corner[rand()%4];printf("%d\n",p);return MOV(p,p);}
 	//if(B.who==-1){p=rand()%32;printf("%d\n",p);return MOV(p,p);}
 
-	// ­Y·j¥X¨Óªºµ²ªG·|¤ñ²{¦b¦n´N¥Î·j¥X¨Óªº¨«ªk
+	// è‹¥æœå‡ºä¾†çš„çµæœæœƒæ¯”ç¾åœ¨å¥½å°±ç”¨æœå‡ºä¾†çš„èµ°æ³•
 //	if(SearchMax(B,-INF,INF,0,5)>Eval(B))return BestMove;
-	if(NegaScout(B,-INF,INF,0,5)>Eval(B))return BestMove;
+	if(NegaScout(B,-INF,INF,0,7)>Eval(B))return BestMove;
 
-	// §_«hÀH«KÂ½¤@­Ó¦a¤è ¦ı¤p¤ß¥i¯à¤w¸g¨S¦a¤èÂ½¤F
+	// å¦å‰‡éš¨ä¾¿ç¿»ä¸€å€‹åœ°æ–¹ ä½†å°å¿ƒå¯èƒ½å·²ç¶“æ²’åœ°æ–¹ç¿»äº†
 	for(p=0;p<32;p++)if(B.fin[p]==FIN_X)c++;
 	if(c==0)return BestMove;
 	c=rand()%c;
 	for(p=0;p<32;p++)if(B.fin[p]==FIN_X&&--c<0)break;
 	return MOV(p,p);
 }
-
 
 
 FIN type2fin(int type) {
@@ -268,7 +283,7 @@ int main(int argc, char* argv[]) {
 	B.Init(iCurrentPosition, iPieceCount, (color==2)?(-1):(int)color);
 
 	MOV m;
-	if(turn) // §Ú¥ı
+	if(turn) // æˆ‘å…ˆ
 	{
 	    m = Play(B);
 	    sprintf(src, "%c%c",(m.st%4)+'a', m.st/4+'1');
@@ -284,7 +299,7 @@ int main(int argc, char* argv[]) {
 	    m.ed = (mov[2]=='(')?m.st:(mov[3] - 'a' + (mov[4] - '1')*4);
 	    B.DoMove(m, chess2fin(mov[3]));
 	}
-	else // ¹ï¤è¥ı
+	else // å°æ–¹å…ˆ
 	{
 	    protocol->recv(mov, remain_time);
 	    if( color == 2)

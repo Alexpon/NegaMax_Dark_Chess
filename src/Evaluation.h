@@ -8,6 +8,7 @@ public:
 	BOARD B;
 	int material_value();
 	void dynamic_material_mode();
+	int fin_score();
 };
 
 Evaluation::Evaluation(const BOARD b){
@@ -32,4 +33,8 @@ int Evaluation::material_value(){
 
 void Evaluation::dynamic_material_mode(){
 	
+}
+
+int Evaluation::fin_score(){
+	return 0;
 }
