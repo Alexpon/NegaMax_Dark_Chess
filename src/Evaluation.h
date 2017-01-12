@@ -16,7 +16,7 @@ Evaluation::Evaluation(const BOARD b){
 }
 
 int Evaluation::material_value(){
-	int material[14] = {15,15,10,7,4,10,3, 15,15,10,7,4,10,3};
+	int material[16] = {15,15,10,7,4,10,3, 15,15,10,7,4,10,3, 0,0};
 	int cnt[2]={0,0};
 
 	// 計算目前盤面紅黑數量

@@ -6,14 +6,16 @@
  * for permission first.
  *
  * Modify by Hung-Jui Chang, December 2013
+ * Implement NegaScout & Evaluation by Yu-Shao Peng, Jan 2017
 \*****************************************************************************/
 #include <cstdio>
 #include <cstdlib>
+#include <random>
 #include "anqi.hh"
 #include "Protocol.h"
 #include "ClientSocket.h"
 #include "Evaluation.h"
-#include "Hash.h"
+#include "HASH.h"
 
 #ifdef _WINDOWS
 #include<windows.h>
@@ -22,10 +24,17 @@
 #endif
 
 const int DEFAULTTIME = 15;
+const int PIECE = 15;	//1-14棋子 15未翻
+const int LOCATION = 32;
+const int PLAYER = 2;
+const uint64_t RANDMAX = 0xFFFFFFFFFFFFFFFF; //64 bit maximum
+HASH hashTable;
+uint64_t state[PIECE][LOCATION];
+uint64_t turn[PLAYER];
+
 typedef  int SCORE;
 static const SCORE INF=1000001;
 static const SCORE WIN=1000000;
-static const SCORE FailSearch=-99999;
 
 SCORE SearchMax(const BOARD&,int,int,int,int);
 SCORE SearchMin(const BOARD&,int,int,int,int);
@@ -33,6 +42,10 @@ SCORE Max(SCORE, SCORE);
 SCORE Min(SCORE, SCORE);
 
 SCORE NegaScout(const BOARD&,int,int,int,int);
+uint64_t getZobristKey(const BOARD&, int);
+uint64_t random_generator();
+void generate_random_state_turn();
+
 
 #ifdef _WINDOWS
 DWORD Tick;     // 開始時刻
@@ -53,17 +66,9 @@ bool TimesUp() {
 
 
 SCORE Eval(const BOARD &B) {
-	
-	int cnt[2]={0,0};
-	for(POS p=0;p<32;p++){const CLR c=GetColor(B.fin[p]);if(c!=-1)cnt[c]++;}	// ­pºâ¥Ø«e½L­±¬õ¶Â¼Æ¶q
-	for(int i=0;i<14;i++)cnt[GetColor(FIN(i))]+=B.cnt[i];						// ­pºâ©|¥¼Â½¶}´Ñ¤l¬õ¶Â¼Æ¶q
-	return cnt[B.who]-cnt[B.who^1];								// 0:¶Â¤è 1:¬õ¤è ¨úexclusive-or¬õ¶Â¤¬´«
-	/*
-
 	Evaluation eva = Evaluation(B);
 	int score = eva.material_value();
 	return score;
-	*/
 }
 
 // dep=現在在第幾層
@@ -147,8 +152,10 @@ SCORE NegaScout(const BOARD &B, int alpha, int beta, int dep, int cut) {
 		else
 			return -Eval(B);
 	}
-	SCORE m=-INF;	// the current lower bound
-	SCORE n=beta;	// the current upper bound
+	//SCORE m=-INF;	// the current lower bound
+	uint64_t key = getZobristKey(B, dep);
+	SCORE m = hashTable.searchHash(key, dep, alpha, beta);
+	SCORE n = beta;	// the current upper bound
 	for(int i=0; i<lst.num; i++) {
 		BOARD N(B);
 		N.Move(lst.mov[i]);
@@ -161,10 +168,13 @@ SCORE NegaScout(const BOARD &B, int alpha, int beta, int dep, int cut) {
 			if(dep==0)
 				BestMove=lst.mov[i];
 		}
-		if(m>=beta)
+		if(m>=beta){
+			hashTable.insertHash(getZobristKey(N, dep), dep, m, 2);
 			return m;
+		}
 		n = Max(alpha, m) + 1;
 	}
+	hashTable.insertHash(getZobristKey(B, dep), dep, m, 1);
 	return m;
 
 }
@@ -183,6 +193,34 @@ SCORE Min(SCORE a, SCORE b){
 		return b;
 }
 
+uint64_t getZobristKey(const BOARD &B, int depth){
+	uint64_t key = 0x0;
+	for (int i=0; i<LOCATION; i++){
+		if (B.fin[i]<15){
+			key = key^state[B.fin[i]][i];
+		}
+	}
+	key = key^turn[depth%PLAYER];
+	return key;
+}
+
+void generate_random_state_turn(){
+	for (int i=0; i<PIECE; i++){
+		for (int j=0; j<LOCATION; j++){
+			state[i][j] = random_generator();
+		}
+	}
+	for (int i=0; i<PLAYER; i++){
+		turn[i] = random_generator();
+	}
+}
+
+uint64_t random_generator(){
+    static mt19937_64 local_rand(random_device{}());
+    return uniform_int_distribution<uint64_t>(0, RANDMAX)(local_rand);
+}
+
+
 MOV Play(const BOARD &B) {
 #ifdef _WINDOWS
 	Tick=GetTickCount();
@@ -196,12 +234,22 @@ MOV Play(const BOARD &B) {
 	// 由角落開局
 	POS corner[4] = {0, 3, 28, 31};
 	if(B.who==-1){p=corner[rand()%4];printf("%d\n",p);return MOV(p,p);}
-	//if(B.who==-1){p=rand()%32;printf("%d\n",p);return MOV(p,p);}
-
-	// 若搜出來的結果會比現在好就用搜出來的走法
-//	if(SearchMax(B,-INF,INF,0,5)>Eval(B))return BestMove;
-	if(NegaScout(B,-INF,INF,0,7)>Eval(B))return BestMove;
-
+	
+	MOVLST lst;
+	if (B.MoveGen(lst)!=0){
+		BestMove = lst.mov[0];
+		if(NegaScout(B,-INF,INF,0,8)>Eval(B))return BestMove;
+		
+		// 若搜出來的結果會比現在好就用搜出來的走法
+		/*
+		int ITER_DEEP = 10;
+		SCORE scout_val;
+		for (int i=5; i<ITER_DEEP; i++){
+			scout_val = NegaScout(B,-INF,INF,0,i);
+		}
+		if (scout_val>Eval(B)) return BestMove;
+		*/
+	}
 	// 否則隨便翻一個地方 但小心可能已經沒地方翻了
 	for(p=0;p<32;p++)if(B.fin[p]==FIN_X)c++;
 	if(c==0)return BestMove;
@@ -259,6 +307,10 @@ int main(int argc, char* argv[]) {
 #endif
 
 	BOARD B;
+	// initial random state
+	generate_random_state_turn();
+	hashTable.initial_hash_table();
+	
 	if (argc!=3) {
 	    TimeOut=(B.LoadGame("board.txt")-3)*1000;
 	    if(!B.ChkLose())Output(Play(B));
