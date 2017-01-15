@@ -28,16 +28,15 @@ const int PIECE = 15;	//1-14棋子 15未翻
 const int LOCATION = 32;
 const int PLAYER = 2;
 const uint64_t RANDMAX = 0xFFFFFFFFFFFFFFFF; //64 bit maximum
+
 HASH hashTable;
 uint64_t state[PIECE][LOCATION];
-uint64_t turn[PLAYER];
+uint64_t turn_who[PLAYER];
 
 typedef  int SCORE;
 static const SCORE INF=1000001;
 static const SCORE WIN=1000000;
 
-SCORE SearchMax(const BOARD&,int,int,int,int);
-SCORE SearchMin(const BOARD&,int,int,int,int);
 SCORE Max(SCORE, SCORE);
 SCORE Min(SCORE, SCORE);
 
@@ -65,97 +64,41 @@ bool TimesUp() {
 }
 
 
-SCORE Eval(const BOARD &B) {
+SCORE Eval(const BOARD &B, int dep) {
 	Evaluation eva = Evaluation(B);
-	int score = eva.material_value();
+	int score = eva.material_value(dep);
 	return score;
-}
-
-// dep=現在在第幾層
-// cut=還要再走幾層
-SCORE SearchMax(const BOARD &B, int alpha, int beta, int dep, int cut) {
-	if(B.ChkLose())return -WIN;
-
-	MOVLST lst;
-	if(cut==0||TimesUp()||B.MoveGen(lst)==0)
-		return +Eval(B);
-
-	// Start from the first branch
-	SCORE ret=-INF;
-	BOARD N(B);
-	N.Move(lst.mov[0]);
-	
-	ret = Max(ret, SearchMin(N, alpha, beta, dep+1, cut-1));
-	if (ret >= beta) {return ret;} // beta cut off
-	else {
-		if (dep==0)
-			BestMove = lst.mov[0];
-	}
-	for(int i=1;i<lst.num;i++) {
-		BOARD N(B);
-		N.Move(lst.mov[i]);
-		const SCORE tmp=SearchMin(N, ret, ret+1, dep+1,cut-1);
-		if(tmp>ret){ // fail high
-			if(cut<3 || tmp>=beta){
-				ret = tmp;
-			}
-			else
-				ret = SearchMin(N, tmp, beta, dep+1, cut-1);
-			if(dep==0)
-				BestMove=lst.mov[i];
-		}
-		if(ret>=beta) {return ret;}	// beta cut off
-	}
-	return ret;
-}
-
-SCORE SearchMin(const BOARD &B, int alpha, int beta, int dep, int cut) {
-	if(B.ChkLose())return +WIN;
-
-	MOVLST lst;
-	if(cut==0||TimesUp()||B.MoveGen(lst)==0)return -Eval(B);
-
-	// Start from the first branch
-	SCORE ret=+INF;
-	BOARD N(B);
-	N.Move(lst.mov[0]);
-	ret = Min(ret, SearchMax(N, alpha, beta, dep+1, cut-1));
-	if (ret <= alpha) {return ret;} // alpha cut off
-
-	for(int i=1;i<lst.num;i++) {
-		BOARD N(B);
-		N.Move(lst.mov[i]);
-		const SCORE tmp = SearchMax(N, ret-1, ret, dep+1, cut-1);
-		if(tmp<ret){	// fail low
-			if(cut<3 || tmp<=alpha)
-				ret=tmp;
-			else
-				ret = SearchMax(N, alpha, tmp, dep+1, cut-1);
-		}
-		if(ret<=alpha) {return ret;}	// alpha cut off
-	}
-	return ret;
 }
 
 SCORE NegaScout(const BOARD &B, int alpha, int beta, int dep, int cut) {
 	if(B.ChkLose()){
-		if (dep%2==0)
+//		if (dep%2==0)
 			return -WIN;
-		else
-			return +WIN;
+//		else
+//			return +WIN;
 	}
 
 	MOVLST lst;
 	if(cut==0||TimesUp()||B.MoveGen(lst)==0){
 		if (dep%2==0)
-			return +Eval(B);
+			return +Eval(B, dep);
 		else
-			return -Eval(B);
+			return -Eval(B, dep);
 	}
-	//SCORE m=-INF;	// the current lower bound
+	
 	uint64_t key = getZobristKey(B, dep);
-	SCORE m = hashTable.searchHash(key, dep, alpha, beta);
+	int flag = hashTable.getFlag(key, cut);
+	SCORE m = -INF;
+	
+	if (flag == 1)
+		return	hashTable.getExactVal(key);
+	else if(flag == 2)
+		m = hashTable.getLowerBound(key, alpha);
+	else if(flag == 3)
+		beta = hashTable.getUpperBound(key, beta);
+
 	SCORE n = beta;	// the current upper bound
+	
 	for(int i=0; i<lst.num; i++) {
 		BOARD N(B);
 		N.Move(lst.mov[i]);
@@ -169,12 +112,12 @@ SCORE NegaScout(const BOARD &B, int alpha, int beta, int dep, int cut) {
 				BestMove=lst.mov[i];
 		}
 		if(m>=beta){
-			hashTable.insertHash(getZobristKey(N, dep), dep, m, 2);
+			hashTable.insertHash(getZobristKey(N, dep), dep%2+2, cut, m);
 			return m;
 		}
 		n = Max(alpha, m) + 1;
 	}
-	hashTable.insertHash(getZobristKey(B, dep), dep, m, 1);
+	hashTable.insertHash(getZobristKey(B, dep), 1, cut, m);
 	return m;
 
 }
@@ -200,7 +143,7 @@ uint64_t getZobristKey(const BOARD &B, int depth){
 			key = key^state[B.fin[i]][i];
 		}
 	}
-	key = key^turn[depth%PLAYER];
+	key = key^turn_who[depth%PLAYER];
 	return key;
 }
 
@@ -211,7 +154,7 @@ void generate_random_state_turn(){
 		}
 	}
 	for (int i=0; i<PLAYER; i++){
-		turn[i] = random_generator();
+		turn_who[i] = random_generator();
 	}
 }
 
@@ -229,8 +172,8 @@ MOV Play(const BOARD &B) {
 	Tick=clock();
 	TimeOut = (DEFAULTTIME-3)*CLOCKS_PER_SEC;
 #endif
-	POS p; int c=0;
- 
+	POS p; 
+	int c=0;
 	// 由角落開局
 	POS corner[4] = {0, 3, 28, 31};
 	if(B.who==-1){p=corner[rand()%4];printf("%d\n",p);return MOV(p,p);}
@@ -238,24 +181,24 @@ MOV Play(const BOARD &B) {
 	MOVLST lst;
 	if (B.MoveGen(lst)!=0){
 		BestMove = lst.mov[0];
-		if(NegaScout(B,-INF,INF,0,8)>Eval(B))return BestMove;
+//		if(NegaScout(B,-INF,INF,0,10)>Eval(B,0))return BestMove;
 		
-		// 若搜出來的結果會比現在好就用搜出來的走法
-		/*
-		int ITER_DEEP = 10;
+		// 若搜出來的結果會比現在好就用搜出來的走法*
+
+		int ITER_DEEP = 12;
 		SCORE scout_val;
 		for (int i=5; i<ITER_DEEP; i++){
-			scout_val = NegaScout(B,-INF,INF,0,i);
+			scout_val = NegaScout(B, -INF, INF, 0, i);
 		}
-		if (scout_val>Eval(B)) return BestMove;
-		*/
+		if (scout_val>Eval(B,0)) return BestMove;
+		
 	}
 	// 否則隨便翻一個地方 但小心可能已經沒地方翻了
-	for(p=0;p<32;p++)if(B.fin[p]==FIN_X)c++;
-	if(c==0)return BestMove;
-	c=rand()%c;
-	for(p=0;p<32;p++)if(B.fin[p]==FIN_X&&--c<0)break;
-	return MOV(p,p);
+	Evaluation eva = Evaluation(B);
+	POS bestFin = eva.get_fin();
+	if (bestFin==-1)
+		return BestMove;
+	return MOV(bestFin,bestFin);
 }
 
 
@@ -305,12 +248,12 @@ int main(int argc, char* argv[]) {
 #else
 	srand(Tick=time(NULL));
 #endif
-
+	
 	BOARD B;
 	// initial random state
 	generate_random_state_turn();
 	hashTable.initial_hash_table();
-	
+
 	if (argc!=3) {
 	    TimeOut=(B.LoadGame("board.txt")-3)*1000;
 	    if(!B.ChkLose())Output(Play(B));
@@ -371,6 +314,7 @@ int main(int argc, char* argv[]) {
 	while(1)
 	{
 	    m = Play(B);
+
 	    sprintf(src, "%c%c",(m.st%4)+'a', m.st/4+'1');
 	    sprintf(dst, "%c%c",(m.ed%4)+'a', m.ed/4+'1');
 	    protocol->send(src, dst);

@@ -7,15 +7,17 @@ class HASH{
 		HASH();		
 		void initial_hash_table();
 		void insertHash(uint64_t, int, int, int);
-		int searchHash(uint64_t, int, int, int);
-		void deleteTabel();
+		int searchHash(uint64_t, int, int, int, int);
+		int getFlag(uint64_t, int);
+		int getExactVal(uint64_t);
+		int getUpperBound(uint64_t, int);
+		int getLowerBound(uint64_t, int);
+
 		struct HashNode{
 			int depth;
 			int score;	// best value in this subtree
-			int flag;	// 1: exact value  2: lower bound causing a beta cut  0 :null space
-			uint64_t childB;	//?
+			int flag;	// 1: exact value  2: lower bound 3: upper bound 0 :null space
 		};
-
 		uint64_t hashSize;
 		HashNode *hashTable;
 };
@@ -37,42 +39,49 @@ void HASH::initial_hash_table(){
 }
 
 
-void HASH::insertHash(uint64_t key, int depth, int score, int flag){
+void HASH::insertHash(uint64_t key, int flag, int cut, int score){
 	uint64_t addr = (key & hashSize);
 	// 當該位址是空的 直接存入
 	if(hashTable[addr].flag==0){
-		hashTable[addr].depth = depth;
+		hashTable[addr].depth = cut;
 		hashTable[addr].score = score;
 		hashTable[addr].flag = flag;
 	}
 	// 若有值 判斷depth
-	else if(hashTable[addr].depth < depth){
-		hashTable[addr].depth = depth;
+	else if(hashTable[addr].depth < cut){
+		hashTable[addr].depth = cut;
 		hashTable[addr].score = score;
 		hashTable[addr].flag = flag;
 	}
 }
 
-int HASH::searchHash(uint64_t key, int depth, int alpha, int beta){
+int HASH::getFlag(uint64_t key, int cut){
 	uint64_t addr = (key & hashSize);
-	// Hash hit
-	if (hashTable[addr].flag != 0){
-		// 比目前的深度深
-		if(hashTable[addr].depth >= depth){
-			if (hashTable[addr].flag==1)
-				return hashTable[addr].score;
-			// 目前盤面的bound比Transition Table理得好
-			if (depth%2==1 && hashTable[addr].score <= alpha)
-				return alpha;
-			if (depth%2==0 && hashTable[addr].score >= beta)
-				return beta;
-		}
-		// Remember Best Move()
-	}
-	return FailSearch;
+	if (hashTable[addr].flag==0)
+		return 0;
+	if (hashTable[addr].depth >= cut)
+		return hashTable[addr].flag;
+	else
+		return 0;
 }
 
-void HASH::deleteTabel(){
-	free(hashTable);
+int HASH::getExactVal(uint64_t key){
+		uint64_t addr = (key & hashSize);
+		return hashTable[addr].score;
 }
 
+int HASH::getUpperBound(uint64_t key, int beta){
+	uint64_t addr = (key & hashSize);
+	if (hashTable[addr].score >= beta)
+		return beta;
+	else
+		return hashTable[addr].score;
+}
+
+int HASH::getLowerBound(uint64_t key, int alpha){
+	uint64_t addr = (key & hashSize);
+	if (hashTable[addr].score <= alpha)
+		return alpha;
+	else
+		return hashTable[addr].score;
+}
