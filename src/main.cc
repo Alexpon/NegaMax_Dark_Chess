@@ -71,12 +71,8 @@ SCORE Eval(const BOARD &B, int dep) {
 }
 
 SCORE NegaScout(const BOARD &B, int alpha, int beta, int dep, int cut) {
-	if(B.ChkLose()){
-//		if (dep%2==0)
-			return -WIN;
-//		else
-//			return +WIN;
-	}
+	if(B.ChkLose())
+		return -WIN;
 
 	MOVLST lst;
 	if(cut==0||TimesUp()||B.MoveGen(lst)==0){
@@ -93,10 +89,8 @@ SCORE NegaScout(const BOARD &B, int alpha, int beta, int dep, int cut) {
 	if (flag == 1)
 		return	hashTable.getExactVal(key);
 	else if(flag == 2)
-		m = hashTable.getLowerBound(key, alpha);
-	else if(flag == 3)
-		beta = hashTable.getUpperBound(key, beta);
-
+		m = hashTable.getBound(key);
+	
 	SCORE n = beta;	// the current upper bound
 	
 	for(int i=0; i<lst.num; i++) {
@@ -112,7 +106,7 @@ SCORE NegaScout(const BOARD &B, int alpha, int beta, int dep, int cut) {
 				BestMove=lst.mov[i];
 		}
 		if(m>=beta){
-			hashTable.insertHash(getZobristKey(N, dep), dep%2+2, cut, m);
+			hashTable.insertHash(getZobristKey(N, dep), 2, cut, m);
 			return m;
 		}
 		n = Max(alpha, m) + 1;
@@ -178,20 +172,17 @@ MOV Play(const BOARD &B) {
 	POS corner[4] = {0, 3, 28, 31};
 	if(B.who==-1){p=corner[rand()%4];printf("%d\n",p);return MOV(p,p);}
 	
+	// 若搜出來的結果會比現在好就用搜出來的走法*
 	MOVLST lst;
 	if (B.MoveGen(lst)!=0){
 		BestMove = lst.mov[0];
-//		if(NegaScout(B,-INF,INF,0,10)>Eval(B,0))return BestMove;
-		
-		// 若搜出來的結果會比現在好就用搜出來的走法*
 
 		int ITER_DEEP = 12;
 		SCORE scout_val;
 		for (int i=5; i<ITER_DEEP; i++){
 			scout_val = NegaScout(B, -INF, INF, 0, i);
 		}
-		if (scout_val>Eval(B,0)) return BestMove;
-		
+		if (scout_val>Eval(B,0)) return BestMove;		
 	}
 	// 否則隨便翻一個地方 但小心可能已經沒地方翻了
 	Evaluation eva = Evaluation(B);

@@ -1,0 +1,21 @@
+* 12:41am Jan 16  2017
+* a5 vs a0
+* 1 2 2 2 2 2 5 1 2 2 2 2 2 5
+* X X X X
+* X X X X
+* X X X X
+* X X X X
+* X X X X
+* X X X X
+* X X X X
+* X X X X
+* first 1
+* time 900
+* 1. a8(p) d6(P)
+* 2. c8(M) b7(M)
+* a0 wins
+* Comment 0 0
+0. 1484498491094
+1. 1484498491110
+2. 1484498491297
+3. 1484498491297

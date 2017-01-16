@@ -1,0 +1,19 @@
+* 0:43am February 16, 2017
+* Player1(a0) vs Player2(a5)
+* 1 2 2 2 2 2 5 1 2 2 2 2 2 5
+* X X X X
+* X X X X
+* X X X X
+* X X X X
+* X X X X
+* X X X X
+* X X X X
+* X X X X
+* first 0
+* time 900
+* 1. d7(P) c8(N)
+* 2. b1(p)
+* Comment 0 0
+0. 1484498482719
+1. 1484498483610
+2. 1484498483625

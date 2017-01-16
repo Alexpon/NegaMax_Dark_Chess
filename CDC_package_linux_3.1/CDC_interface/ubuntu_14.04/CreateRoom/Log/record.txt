@@ -1,0 +1,20 @@
+
+ Normal End ( PlayerNum : 1,  WinLoseFlag : 1  )
+ ## Win : 1 ,   Lose : 0 ,  Draw : 0 ,  PlayTime : 1  ## 
+
+ 
+Both no capturing, revealing for 60 plies. The game is judged as a draw!
+
+ ( PlayerNum : 2,  WinLoseFlag : 3 )
+ ## Win : 1 ,   Lose : 0 ,  Draw : 1 ,  PlayTime : 2  ## 
+
+ 
+Both no capturing, revealing for 60 plies. The game is judged as a draw!
+
+ ( PlayerNum : 2,  WinLoseFlag : 3 )
+ ## Win : 0 ,   Lose : 0 ,  Draw : 1 ,  PlayTime : 1  ## 
+
+
+ Normal End ( PlayerNum : 2,  WinLoseFlag : 1  )
+ ## Win : 0 ,   Lose : 1 ,  Draw : 0 ,  PlayTime : 1  ## 
+

@@ -10,19 +10,16 @@ class HASH{
 		int searchHash(uint64_t, int, int, int, int);
 		int getFlag(uint64_t, int);
 		int getExactVal(uint64_t);
-		int getUpperBound(uint64_t, int);
-		int getLowerBound(uint64_t, int);
+		int getBound(uint64_t);
 
 		struct HashNode{
 			int depth;
 			int score;	// best value in this subtree
-			int flag;	// 1: exact value  2: lower bound 3: upper bound 0 :null space
+			int flag;	// 1: exact value  2: bound  0 :null space
 		};
 		uint64_t hashSize;
 		HashNode *hashTable;
 };
-
-
 
 static const int FailSearch = -1000001;
 
@@ -66,22 +63,12 @@ int HASH::getFlag(uint64_t key, int cut){
 }
 
 int HASH::getExactVal(uint64_t key){
-		uint64_t addr = (key & hashSize);
-		return hashTable[addr].score;
+	uint64_t addr = (key & hashSize);
+	return hashTable[addr].score;
 }
 
-int HASH::getUpperBound(uint64_t key, int beta){
+int HASH::getBound(uint64_t key){
 	uint64_t addr = (key & hashSize);
-	if (hashTable[addr].score >= beta)
-		return beta;
-	else
-		return hashTable[addr].score;
+	return hashTable[addr].score;
 }
 
-int HASH::getLowerBound(uint64_t key, int alpha){
-	uint64_t addr = (key & hashSize);
-	if (hashTable[addr].score <= alpha)
-		return alpha;
-	else
-		return hashTable[addr].score;
-}
