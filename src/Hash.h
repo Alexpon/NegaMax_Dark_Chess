@@ -6,16 +6,18 @@ class HASH{
 
 		HASH();		
 		void initial_hash_table();
-		void insertHash(uint64_t, int, int, int);
+		void insertHash(uint64_t, int, int, int, MOV);
 		int searchHash(uint64_t, int, int, int, int);
 		int getFlag(uint64_t, int);
 		int getExactVal(uint64_t);
 		int getBound(uint64_t);
+		MOV getBestMov(uint64_t);
 
 		struct HashNode{
-			int depth;
-			int score;	// best value in this subtree
-			int flag;	// 1: exact value  2: bound  0 :null space
+			int depth;		// 還需要搜尋的層數
+			int score;		// best value in this subtree
+			int flag;		// 1: exact value  2: bound  0 :null space
+			MOV bestMov;	// best child
 		};
 		uint64_t hashSize;
 		HashNode *hashTable;
@@ -36,19 +38,21 @@ void HASH::initial_hash_table(){
 }
 
 
-void HASH::insertHash(uint64_t key, int flag, int cut, int score){
+void HASH::insertHash(uint64_t key, int flag, int cut, int score, MOV bestM){
 	uint64_t addr = (key & hashSize);
 	// 當該位址是空的 直接存入
 	if(hashTable[addr].flag==0){
 		hashTable[addr].depth = cut;
 		hashTable[addr].score = score;
 		hashTable[addr].flag = flag;
+		hashTable[addr].bestMov = bestM;
 	}
 	// 若有值 判斷depth
 	else if(hashTable[addr].depth < cut){
 		hashTable[addr].depth = cut;
 		hashTable[addr].score = score;
 		hashTable[addr].flag = flag;
+		hashTable[addr].bestMov = bestM;
 	}
 }
 
@@ -72,3 +76,7 @@ int HASH::getBound(uint64_t key){
 	return hashTable[addr].score;
 }
 
+MOV HASH::getBestMov(uint64_t key){
+	uint64_t addr = (key & hashSize);
+	return hashTable[addr].bestMov;
+}

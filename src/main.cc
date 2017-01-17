@@ -81,15 +81,23 @@ SCORE NegaScout(const BOARD &B, int alpha, int beta, int dep, int cut) {
 		else
 			return -Eval(B, dep);
 	}
-	
+	MOV tmpBestMov = lst.mov[0];
+
 	uint64_t key = getZobristKey(B, dep);
 	int flag = hashTable.getFlag(key, cut);
 	SCORE m = -INF;
 	
-	if (flag == 1)
+	if (flag == 1){
+		if (dep==0)
+			BestMove = hashTable.getBestMov(key);
 		return	hashTable.getExactVal(key);
-	else if(flag == 2)
+	}
+	else if(flag == 2){
 		m = hashTable.getBound(key);
+		tmpBestMov = hashTable.getBestMov(key);
+		if (dep==0)
+			BestMove = hashTable.getBestMov(key);
+	}
 	
 	SCORE n = beta;	// the current upper bound
 	
@@ -97,21 +105,30 @@ SCORE NegaScout(const BOARD &B, int alpha, int beta, int dep, int cut) {
 		BOARD N(B);
 		N.Move(lst.mov[i]);
 		const SCORE tmp = -1*NegaScout(N, -1*n, -1*Max(alpha, m), dep+1, cut-1);
+
+		if(tmp==WIN && dep==0){
+			BestMove=lst.mov[i];
+			return WIN;
+		}
+
 		if(tmp>m) {
 			if(n==beta||cut<3||tmp>=beta)
 				m = tmp;
 			else
 				m = -1*NegaScout(N, -1*beta, -1*tmp, dep+1, cut-1);
+			
+			tmpBestMov = lst.mov[i];
+			
 			if(dep==0)
 				BestMove=lst.mov[i];
 		}
 		if(m>=beta){
-			hashTable.insertHash(getZobristKey(N, dep), 2, cut, m);
+			hashTable.insertHash(getZobristKey(N, dep), 2, cut, m, tmpBestMov);
 			return m;
 		}
 		n = Max(alpha, m) + 1;
 	}
-	hashTable.insertHash(getZobristKey(B, dep), 1, cut, m);
+	hashTable.insertHash(getZobristKey(B, dep), 1, cut, m, tmpBestMov);
 	return m;
 
 }
@@ -167,6 +184,8 @@ MOV Play(const BOARD &B) {
 	TimeOut = (DEFAULTTIME-3)*CLOCKS_PER_SEC;
 #endif
 	POS p; 
+	int ITER_DEEP;
+	SCORE scout_val;
 	int c=0;
 	// 由角落開局
 	POS corner[4] = {0, 3, 28, 31};
@@ -175,22 +194,30 @@ MOV Play(const BOARD &B) {
 	// 若搜出來的結果會比現在好就用搜出來的走法*
 	MOVLST lst;
 	if (B.MoveGen(lst)!=0){
+		// initial best move
 		BestMove = lst.mov[0];
+		// 取得目前的盤面資訊 判斷目前是前期中期後期
+		if (lst.num < 10)
+			ITER_DEEP = 7;
+		else
+			ITER_DEEP = 12;
 
-		int ITER_DEEP = 12;
-		SCORE scout_val;
-		for (int i=5; i<ITER_DEEP; i++){
+		for (int i=1; i<ITER_DEEP; i++){
 			scout_val = NegaScout(B, -INF, INF, 0, i);
+			if (scout_val==WIN)
+				break;
 		}
 		if (scout_val>Eval(B,0)) return BestMove;		
 	}
-	// 否則隨便翻一個地方 但小心可能已經沒地方翻了
+
+	// 否則翻子
 	Evaluation eva = Evaluation(B);
 	POS bestFin = eva.get_fin();
 	if (bestFin==-1)
 		return BestMove;
 	return MOV(bestFin,bestFin);
 }
+
 
 
 FIN type2fin(int type) {
