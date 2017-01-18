@@ -6,7 +6,7 @@
  * for permission first.
  *
  * Modify by Hung-Jui Chang, December 2013
- * Implement NegaScout & Evaluation by Yu-Shao Peng, Jan 2017
+ * Implement NegaScout & Eval by Yu-Shao Peng, Jan 2017
 \*****************************************************************************/
 #include <cstdio>
 #include <cstdlib>
@@ -23,22 +23,22 @@
 #include<ctime>
 #endif
 
-const int DEFAULTTIME = 15;
 const int PIECE = 15;	//1-14棋子 15未翻
 const int LOCATION = 32;
 const int PLAYER = 2;
 const uint64_t RANDMAX = 0xFFFFFFFFFFFFFFFF; //64 bit maximum
+int DEFAULTTIME = 15;
+int remain_time;
 
 HASH hashTable;
 uint64_t state[PIECE][LOCATION];
 uint64_t turn_who[PLAYER];
 
 typedef  int SCORE;
-static const SCORE INF=1000001;
-static const SCORE WIN=1000000;
+static const SCORE INF=10000001;
+static const SCORE WIN=10000000;
 
 SCORE Max(SCORE, SCORE);
-SCORE Min(SCORE, SCORE);
 
 SCORE NegaScout(const BOARD&,int,int,int,int);
 uint64_t getZobristKey(const BOARD&, int);
@@ -140,13 +140,6 @@ SCORE Max(SCORE a, SCORE b){
 		return b;
 }
 
-SCORE Min(SCORE a, SCORE b){
-	if(a<b)
-		return a;
-	else
-		return b;
-}
-
 uint64_t getZobristKey(const BOARD &B, int depth){
 	uint64_t key = 0x0;
 	for (int i=0; i<LOCATION; i++){
@@ -176,6 +169,7 @@ uint64_t random_generator(){
 
 
 MOV Play(const BOARD &B) {
+
 #ifdef _WINDOWS
 	Tick=GetTickCount();
 	TimeOut = (DEFAULTTIME-3)*1000;
@@ -191,16 +185,24 @@ MOV Play(const BOARD &B) {
 	POS corner[4] = {0, 3, 28, 31};
 	if(B.who==-1){p=corner[rand()%4];printf("%d\n",p);return MOV(p,p);}
 	
-	// 若搜出來的結果會比現在好就用搜出來的走法*
+	// 若搜出來的結果會比現在好就用搜出來的走法
 	MOVLST lst;
 	if (B.MoveGen(lst)!=0){
 		// initial best move
 		BestMove = lst.mov[0];
-		// 取得目前的盤面資訊 判斷目前是前期中期後期
-		if (lst.num < 10)
-			ITER_DEEP = 7;
-		else
-			ITER_DEEP = 12;
+
+		if (remain_time < 30*1000)
+			DEFAULTTIME=4;
+
+		else if (remain_time < 100*1000)
+			DEFAULTTIME=6;
+
+		if (lst.num < 10){
+			ITER_DEEP=7;
+		}
+		else{
+			ITER_DEEP=12;
+		}
 
 		for (int i=1; i<ITER_DEEP; i++){
 			scout_val = NegaScout(B, -INF, INF, 0, i);
@@ -282,7 +284,7 @@ int main(int argc, char* argv[]) {
 	protocol->init_protocol(argv[1],atoi(argv[2]));
 	int iPieceCount[14];
 	char iCurrentPosition[32];
-	int type, remain_time;
+	int type;//, remain_time;
 	bool turn;
 	PROTO_CLR color;
 

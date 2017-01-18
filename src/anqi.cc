@@ -108,33 +108,6 @@ static POS mkpos(int x,int y) {
 	return x*4+y;
 }
 
-// void BOARD::Init(int Board[32], int Piece[14], int Color) {
-//     for (int i = 0 ; i < 14; ++i) {
-// 	cnt[i] = Piece[i];
-//     }
-//     for (int i = 0 ; i < 32; ++i) {
-// 	switch(Board[i]) {
-// 	    case  0: fin[i] = FIN_E;break;
-// 	    case  1: fin[i] = FIN_K;cnt[FIN_K]--;break;
-// 	    case  2: fin[i] = FIN_G;cnt[FIN_G]--;break;
-// 	    case  3: fin[i] = FIN_M;cnt[FIN_M]--;break;
-// 	    case  4: fin[i] = FIN_R;cnt[FIN_R]--;break;
-// 	    case  5: fin[i] = FIN_N;cnt[FIN_N]--;break;
-// 	    case  6: fin[i] = FIN_C;cnt[FIN_C]--;break;
-// 	    case  7: fin[i] = FIN_P;cnt[FIN_P]--;break;
-// 	    case  8: fin[i] = FIN_X;break;
-// 	    case  9: fin[i] = FIN_k;cnt[FIN_k]--;break;
-// 	    case 10: fin[i] = FIN_g;cnt[FIN_g]--;break;
-// 	    case 11: fin[i] = FIN_m;cnt[FIN_m]--;break;
-// 	    case 12: fin[i] = FIN_r;cnt[FIN_r]--;break;
-// 	    case 13: fin[i] = FIN_n;cnt[FIN_n]--;break;
-// 	    case 14: fin[i] = FIN_c;cnt[FIN_c]--;break;
-// 	    case 15: fin[i] = FIN_p;cnt[FIN_p]--;break;
-// 	}
-//     }
-//     who = Color;
-// }
-
 void BOARD::Init(char Board[32], int Piece[14], int Color) {
     for (int i = 0 ; i < 14; ++i) {
 	cnt[i] = Piece[i];

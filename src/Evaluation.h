@@ -8,15 +8,13 @@ public:
 	Evaluation(const BOARD);
 	BOARD B;
 	int material_value(int);
-	void dynamic_material_mode();
 	int get_distancs(int, int);
 	int get_fin();
-	int material[16] = {1000,1200,200,50,10,200,5, 1000,1200,200,50,10,200,5, 0,0};
-	// 使用技巧調整
+	int material[16] = {1000,1200,200,50,10,600,50, 1000,1200,200,50,10,600,50, 0,0};
 	int fin_my_cannon[7] = {100, 100, 30, 20, 10, -100, 5};
 	int fin_en_cannon[7] = {-100, -100, -10, -10, 0, 30, 0};
 	int fin_my_neighbor[7] = {-50, 10, 5, 3, 1, -1000, 10};
-	int fin_en_neighbor[7] = {10, -50, -10, -3, 0, 100, -5};
+	int fin_en_neighbor[7] = {10, -50, -10, -5, -5, 100, -10};
 
 };
 
@@ -27,51 +25,120 @@ Evaluation::Evaluation(const BOARD b){
 
 int Evaluation::material_value(int dep){
 	int val[2]={0,0};
-	int all_cnt[2]={0,0};
-	int pins_num[2]={0,0};
-	int king_num[2]={0,0};
+	int live_cheese[14]={0,0,0,0,0,0,0, 0,0,0,0,0,0,0};
+
 	int my_color;
 	int dis_val=0;
-	int eva_val;
+	int same_val=0;
+	int enermy_num=0;
+	int my_num=0;
 
 	if(dep%2==0)
 		my_color = B.who;
 	else
 		my_color = B.who^1;
-	// 計算目前盤面紅黑數量
+	
+	// 計算目前盤面將士砲卒數量
 	for(POS p=0;p<32;p++){
 		const CLR c=GetColor(B.fin[p]);
 		if(c!=-1){
-			all_cnt[c]++;
 			val[c] += material[B.fin[p]];
+			live_cheese[B.fin[p]]+=1;
 		}
-
-		if(B.fin[p]==0 || B.fin[p]==7)
-			king_num[c] = 1;
-		else if(B.fin[p]==6 || B.fin[p]==13)
-			pins_num[c] += 1;
 	}
+
 	// 計算尚未翻開棋子紅黑數量
 	for(int i=0;i<14;i++){
 		val[GetColor(FIN(i))] += B.cnt[i]*material[i];
-		all_cnt[GetColor(FIN(i))] += B.cnt[i];
+		live_cheese[i] += B.cnt[i];
 	}
-	king_num[0] += B.cnt[0];
-	king_num[1] += B.cnt[7];
-	pins_num[0] += B.cnt[6];
-	pins_num[1] += B.cnt[13];
-/*
-	if(all_cnt[my_color^1]<4 || (all_cnt[my_color]+all_cnt[my_color^1])<9){
-		dis_val +=
+
+	for (int i=0; i<7; i++){
+		my_num += live_cheese[(my_color)*7+i];
+		enermy_num += live_cheese[(my_color^1)*7+i];
 	}
-*/
-	eva_val = val[my_color]-val[my_color^1] + king_num[my_color^1]*pow(9, (5-pins_num[my_color]));
 
-	return eva_val;
-}
+// Distance Value 
+	if(enermy_num < 4){
+		int idx=0;
+		int e_lvl;
+		int sub_lvl;
+		int dis;
 
-void Evaluation::dynamic_material_mode(){
-	
+		dis_val += (4-enermy_num)*2000;
+		for (POS p=0; p<32; p++){
+			if(GetColor(B.fin[p])==(my_color^1)){
+				e_lvl = B.fin[p]%7;
+				for(POS p2=0; p2<32; p2++){
+					if(GetColor(B.fin[p])==my_color){
+						sub_lvl = -1*((B.fin[p])%7-e_lvl);
+						dis = abs(p/4-p2/4) + abs(p-p2)%4;
+						if (sub_lvl==6)
+							dis_val += (-200)/dis;
+						else if(sub_lvl==-6)
+							dis_val += 200/dis;
+						else{
+							if(sub_lvl>0)
+								sub_lvl*2;	// 吃掉對方比較重要
+							dis_val += (1-(sub_lvl/6))*(sub_lvl*200/dis);
+						}
+					}
+				}
+				enermy_num--;
+			}
+			if(enermy_num==0)
+				break;
+		}
+
+		// 處理雙方最大子棋力相同的情形
+		
+		int my_best=-1, en_best=-1;
+		int my_pos=-1, en_pos=-1;
+		
+		for (int i=0; i<7; i++){
+			if(live_cheese[my_color*7+i]!=0){
+				my_best = my_color*7+i;
+				break;
+			}
+		}
+		for (int i=0; i<7; i++){
+			if(live_cheese[(my_color^1)*7+i]!=0){
+				en_best = (my_color^1)*7+i;
+				break;
+			}
+		}
+		if(my_best==en_best){
+			for (POS p=0; p<32; p++){
+				if(B.fin[p]==my_best)
+					my_pos==p;
+				if(B.fin[p]==en_best)
+					en_pos==p;
+			}
+			if(my_pos!=-1 && en_pos!=-1){
+				dis = (abs(my_pos/4-en_pos/4)+abs(my_pos-en_pos)%4);
+				if (dis==1){
+					if(dep%2==0)
+						same_val=100000;
+					else
+						same_val=-100000;
+				}
+				else{
+					if(enermy_num>my_num)
+						same_val=3000/dis;
+					else
+						same_val=-3000/dis;
+				}
+			}
+		}
+	}
+
+
+	int pure_material = val[my_color]-val[my_color^1];
+	int king_live = (live_cheese[(my_color)*7]-live_cheese[(my_color^1)*7])*5000;
+	int pins_dynamic_val = live_cheese[(my_color^1)*7]*pow(9, (5-live_cheese[my_color*7+6]));
+	 
+
+	return (pure_material + king_live + pins_dynamic_val + dis_val + same_val);
 }
 
 int Evaluation::get_distancs(int p1, int p2){
