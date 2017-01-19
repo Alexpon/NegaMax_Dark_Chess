@@ -85,6 +85,7 @@ SCORE NegaScout(const BOARD &B, int alpha, int beta, int dep, int cut) {
 
 	uint64_t key = getZobristKey(B, dep);
 	int flag = hashTable.getFlag(key, cut);
+
 	SCORE m = -INF;
 	
 	if (flag == 1){
@@ -98,7 +99,7 @@ SCORE NegaScout(const BOARD &B, int alpha, int beta, int dep, int cut) {
 		if (dep==0)
 			BestMove = hashTable.getBestMov(key);
 	}
-	
+
 	SCORE n = beta;	// the current upper bound
 	
 	for(int i=0; i<lst.num; i++) {
@@ -185,30 +186,32 @@ MOV Play(const BOARD &B) {
 	POS corner[4] = {0, 3, 28, 31};
 	if(B.who==-1){p=corner[rand()%4];printf("%d\n",p);return MOV(p,p);}
 	
-	// 若搜出來的結果會比現在好就用搜出來的走法
 	MOVLST lst;
 	if (B.MoveGen(lst)!=0){
 		// initial best move
 		BestMove = lst.mov[0];
-
+		
+		// 當時間只剩下30秒 每步思考時間縮短為1秒
 		if (remain_time < 30*1000)
 			DEFAULTTIME=4;
 
+		// 當時間只剩下100秒 每步思考時間縮短為3秒
 		else if (remain_time < 100*1000)
 			DEFAULTTIME=6;
-
-		if (lst.num < 10){
+		
+		// 當合法步數小於10 深度減少
+		if (lst.num < 10)
 			ITER_DEEP=7;
-		}
-		else{
+		else
 			ITER_DEEP=12;
-		}
 
+		// Iterative Deepening
 		for (int i=1; i<ITER_DEEP; i++){
 			scout_val = NegaScout(B, -INF, INF, 0, i);
 			if (scout_val==WIN)
 				break;
 		}
+		// 若搜出來的結果會比現在好就用搜出來的走法
 		if (scout_val>Eval(B,0)) return BestMove;		
 	}
 
@@ -284,7 +287,7 @@ int main(int argc, char* argv[]) {
 	protocol->init_protocol(argv[1],atoi(argv[2]));
 	int iPieceCount[14];
 	char iCurrentPosition[32];
-	int type;//, remain_time;
+	int type;
 	bool turn;
 	PROTO_CLR color;
 
