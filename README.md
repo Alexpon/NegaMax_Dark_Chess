@@ -7,5 +7,15 @@
   * CDC_package_linux_3.1 & CDC_package_win7_3.1 are Template Code
   * All implements are in /src
 
-## Compile:
+#####Compile:
+    cd src
+    make
+    cd ../CDC_package_linux_3.1/CDC_interface/ubuntu_14.04/EnterRoom or CreatRoom
+    ./DarkCheese_linux 1
 
+#####Implement:
+  * NegaScout
+  * Transposition Table
+  * Iterative Deepening
+  * Evaluation Function
+  
